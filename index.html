@@ -92,6 +92,11 @@ body.covered #player{opacity:0; pointer-events:none}
 
 .wish .wtop,.wish .wbot{transition:opacity .6s}
 .wish.fin .wtop,.wish.fin .wbot{opacity:0; pointer-events:none}
+.wishlink.gl{display:block; margin:8px auto 0}
+.gx{position:fixed; top:max(12px,env(safe-area-inset-top)); right:12px; z-index:5; width:46px; height:46px; border-radius:50%; border:0; background:rgba(255,253,245,.92); color:#3a2a40; font-size:20px; cursor:pointer; display:none; box-shadow:0 2px 8px rgba(0,0,0,.25)}
+body.gaming .gx{display:block}
+body.gaming #player{opacity:0; pointer-events:none}
+body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
 </style>
 </head>
 <body>
@@ -102,6 +107,7 @@ body.covered #player{opacity:0; pointer-events:none}
     <h1>Alê — Nosso Presente de Deus</h1>
     <button class="start" id="startBtn" disabled><span class="ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg></span><span id="startLabel">Preparando…</span></button>
     <button class="wishlink" id="wishLink" type="button">Soprar as velinhas</button>
+    <button class="wishlink gl" id="gameLink" type="button">Brincar com o Caramelo</button>
     <p>Melhor com som ligado</p>
     <p class="rot">↻ Vire o celular para ver a cena inteira</p>
   </div>
@@ -121,12 +127,13 @@ body.covered #player{opacity:0; pointer-events:none}
   </div>
 </main>
 <audio id="audio" preload="auto"></audio>
+<button class="gx" id="gClose" type="button" aria-label="Sair do jogo">✕</button>
 <div class="wish out" id="wish" hidden aria-label="Faça um pedido e sopre as velinhas">
   <canvas id="wcv" aria-label="Bolo com 5 velinhas acesas"></canvas>
   <button class="wx" id="wClose" type="button" aria-label="Fechar">✕</button>
   <div class="wtop"><h2>Faça um pedido!</h2><p>Feche os olhos… e sopre as 5 velinhas!</p></div>
   <div class="wbot"><button class="start" id="wMic" type="button"><span class="ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11z"/></svg></span><span id="wMicLabel">Soprar as velinhas</span></button><p class="note" id="wNote">ou passe o dedo sobre as velinhas</p></div>
-  <div class="wcard" id="wCard" hidden><div><div class="k">5 velinhas apagadas</div><p class="t">Feliz aniversário, Alê!</p><p class="x">Nosso amor é todo seu!</p><div class="rowb"><button class="start" id="wAgain" type="button">Acender de novo</button><button class="start ghost" id="wReplay" type="button">Ver o clipe de novo</button></div></div></div>
+  <div class="wcard" id="wCard" hidden><div><div class="k">5 velinhas apagadas</div><p class="t">Feliz aniversário, Alê!</p><p class="x">Nosso amor é todo seu!</p><div class="rowb"><button class="start" id="wAgain" type="button">Acender de novo</button><button class="start ghost" id="wReplay" type="button">Ver o clipe de novo</button><button class="start ghost" id="wGame" type="button">Brincar com o Caramelo</button></div></div></div>
 </div>
 
 <script>
@@ -2153,6 +2160,154 @@ body.covered #player{opacity:0; pointer-events:none}
   function resize(){ W = cv.clientWidth; H = cv.clientHeight; cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR); ctx.setTransform(DPR,0,0,DPR,0,0); }
   window.addEventListener('resize', resize); resize(); document.body.classList.add('paper');
 
+  /* ===== Jogo: brincar com o Caramelo =====
+     A Alê joga a bolinha onde a criança tocar, o Caramelo corre, pega e traz de volta.
+     Usa os mesmos desenhos do clipe (casa, árvores, Alê, Caramelo, Macarrão) e a mesma tela (cv). */
+  var GM = { on: false, t: 0, hits: 0, shown: 0, ball: null, al: null, dog: null, bun: null, fx: [], hint: 1, say: null, party: 0, partyAt: 0 };
+  var gA = null;
+  function gAudio(){ if(!gA){ try{ gA = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){ gA = null; } } if(gA && gA.state === 'suspended') gA.resume(); return gA; }
+  function gTone(f0, f1, dur, type, vol, delay, lp){ var a = gAudio(); if(!a) return; try{
+    var t0 = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain(), out = g;
+    o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + .015); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    if(lp){ var f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; o.connect(f); f.connect(g); } else o.connect(g);
+    out.connect(a.destination); o.start(t0); o.stop(t0 + dur + .02); }catch(e){} }
+  function gBark(){ gTone(520, 250, .15, 'sawtooth', .22, 0, 1500); gTone(470, 220, .16, 'sawtooth', .2, .21, 1400); }
+  function gWhoosh(){ var a = gAudio(); if(!a) return; try{
+    var n = Math.floor(a.sampleRate*.28), b = a.createBuffer(1, n, a.sampleRate), d = b.getChannelData(0); for(var i=0;i<n;i++) d[i] = (Math.random()*2 - 1)*(1 - i/n);
+    var s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(); s.buffer = b; f.type = 'bandpass'; f.Q.value = 1.2; f.frequency.setValueAtTime(700, a.currentTime); f.frequency.exponentialRampToValueAtTime(2600, a.currentTime + .26);
+    g.gain.value = .2; s.connect(f); f.connect(g); g.connect(a.destination); s.start(); }catch(e){} }
+  function gPop(){ gTone(420, 760, .09, 'sine', .22); }
+  function gBounce(){ gTone(260, 150, .08, 'sine', .14); }
+  function gChime(n){ [0, 1, 2, 3].slice(0, n || 3).forEach(function(i){ gTone(523.25*Math.pow(1.2599, i), 523.25*Math.pow(1.2599, i), .3, 'triangle', .16, i*.1); }); }
+  function gSnd(f){ try{ f(); }catch(e){} }
+  function gLayout(){ FH = Math.min(H*.29, W*.48); GY = H*.83; CAM = 0; if(H > W*1.15){ FH = W/3.3; GY = H*.72; CAM = -FH*.4; } }
+  function gAx(){ return X(H > W*1.15 ? -1.3 : -1.2); }
+  function gBox(){ return FH*.05; }
+  function gHome(){ return gAx() + FH*.62; }
+  function gMinX(){ return gAx() + FH*1.25; }
+  function gMaxX(){ return W - FH*.3; }
+  function gReset(){
+    GM.t = 0; GM.hits = 0; GM.shown = 0; GM.fx = []; GM.hint = 1; GM.say = null; GM.party = 0; GM.partyAt = 0;
+    GM.al = { st: 'idle', at: 0, jump: 0 };
+    GM.dog = { x: gHome(), st: 'sit', at: 0, dir: 1, run: 0, hop: 0, tx: 0, bark: 0 };
+    GM.bun = { x: gAx() - FH*.62, hop: 0 };
+    GM.ball = { st: 'hand', col: PARTY[0], x: 0, y: 0, hit: 0, n: 0 };
+  }
+  function gHandPos(){ var h = FH*KID, x = gAx(), a = GM.al, k = (GM.t - a.at);
+    // mão da frente: segura a bolinha, puxa para trás, solta para cima e termina baixa
+    var hold = [x + h*.24, GY - h*.44], back = [x - h*.2, GY - h*.8], up = [x + h*.3, GY - h*.95], low = [x + h*.3, GY - h*.38];
+    if(a.st === 'wind'){ var q = ease(clamp(k/.3, 0, 1)); return [lerp(hold[0], back[0], q), lerp(hold[1], back[1], q)]; }
+    if(a.st === 'throw'){ var q2 = ease(clamp(k/.28, 0, 1)); if(q2 < .5){ var r = q2*2; return [lerp(back[0], up[0], r), lerp(back[1], up[1], r)]; } var r2 = (q2 - .5)*2; return [lerp(up[0], low[0], r2), lerp(up[1], low[1], r2)]; }
+    return hold; }
+  function gThrow(tx){
+    var a = GM.al, b = GM.ball; if(a.st !== 'idle' || b.st !== 'hand') return false;
+    tx = clamp(tx, gMinX(), gMaxX());
+    a.st = 'wind'; a.at = GM.t; a.tx = tx; GM.hint = 0; GM.say = null; return true; }
+  function gRelease(){
+    var a = GM.al, b = GM.ball, hp = gHandPos(), tx = a.tx, r = gBox(), dist = Math.abs(tx - hp[0]);
+    b.st = 'fly'; b.x0 = hp[0]; b.y0 = hp[1]; b.x1 = tx; b.y1 = GY - r; b.at = GM.t; b.dur = .55 + dist/FH*.16; b.peak = FH*(.55 + dist/FH*.2);
+    b.col = PARTY[(b.n++) % PARTY.length]; b.rest = tx + FH*.1; b.x = b.x0; b.y = b.y0;
+    var d = GM.dog; d.st = 'chase'; d.at = GM.t; d.tx = b.rest; gSnd(gWhoosh); }
+  function gSay(txt, x, y, dur){ GM.say = { t: txt, x: x, y: y, at: GM.t, dur: dur || 1.3 }; }
+  function gFx(kind, x, y){ GM.fx.push({ k: kind, x: x, y: y, at: GM.t }); }
+  function gUpdate(dt){
+    GM.t += dt; var t = GM.t, a = GM.al, b = GM.ball, d = GM.dog, r = gBox(), ax = gAx(), h = FH*KID, s = FH*DOGS;
+    // Alê
+    if(a.st === 'wind' && t - a.at >= .3){ a.st = 'throw'; a.at = t; gRelease(); }
+    else if(a.st === 'throw' && t - a.at >= .5){ a.st = 'idle'; }
+    else if(a.st === 'cheer'){ var k = (t - a.at)/.9; a.jump = k < 1 ? Math.abs(Math.sin(k*Math.PI*2))*FH*.14 : 0; if(k >= 1){ a.st = 'idle'; a.jump = 0; } }
+    // bolinha
+    if(b.st === 'fly'){
+      var k2 = (t - b.at)/b.dur; if(k2 >= 1){ b.st = 'bounce'; b.at = t; b.n2 = 0; b.xa = b.x1; b.xb = b.rest; b.bh = b.peak*.22; b.bd = .32; gSnd(gBounce); }
+      else { b.x = lerp(b.x0, b.x1, k2); b.y = lerp(b.y0, b.y1, k2) - 4*b.peak*k2*(1 - k2); }
+    }
+    if(b.st === 'bounce'){
+      var kb = (t - b.at)/b.bd;
+      if(kb >= 1){ b.n2++; if(b.n2 >= 2){ b.st = 'ground'; b.x = b.xb; b.y = GY - r; } else { b.at = t; b.bd = .22; b.bh *= .35; b.xa = lerp(b.x1, b.xb, .6); gSnd(gBounce); } }
+      else { var xs = b.n2 === 0 ? lerp(b.x1, lerp(b.x1, b.xb, .6), kb) : lerp(lerp(b.x1, b.xb, .6), b.xb, kb); b.x = xs; b.y = GY - r - 4*b.bh*kb*(1 - kb); }
+    }
+    if(b.st === 'mouth'){ var dir = d.dir, ms = d.st === 'sit' ? [.62, -.68] : [.82, -.64]; b.x = d.x + dir*s*ms[0]; b.y = GY - d.hop + s*ms[1]; }
+    if(b.st === 'give'){ var kg = (t - b.at)/.38; if(kg >= 1){ b.st = 'hand'; gSnd(gPop); a.st = 'cheer'; a.at = t; GM.hits++; gFx('hearts', ax, GY - h*.9); gSnd(function(){ gChime(GM.hits % 5 === 0 ? 4 : 2); }); gSay('Boa, Caramelo!', ax + FH*.15, GY - h*1.22, 1.5); d.bark = t; gSnd(gBark); GM.bun.hop = t;
+        if(GM.hits % 5 === 0){ GM.party = t; } }
+      else { var hp2 = gHandPos(); b.x = lerp(b.gx, hp2[0], kg); b.y = lerp(b.gy, hp2[1], kg) - 4*FH*.35*kg*(1 - kg); } }
+    // Caramelo
+    var vmax = FH*3.6, tgt, dx;
+    if(d.st === 'sit'){ d.run = 0; d.hop = 0; d.x = lerp(d.x, gHome(), Math.min(1, dt*6)); }
+    else if(d.st === 'chase'){
+      tgt = d.tx; dx = tgt - d.x; d.dir = dx >= 0 ? 1 : -1;
+      var near = Math.abs(dx) < FH*.12;
+      if(near && b.st === 'ground'){ d.st = 'grab'; d.at = t; d.run = 0; }
+      else if(near){ d.run = Math.max(0, d.run - dt*5); }
+      else { d.run = Math.min(1, d.run + dt*5); d.x += d.dir*Math.min(Math.abs(dx), vmax*d.run*dt); }
+      d.hop = Math.abs(Math.sin(t*9))*s*.1*d.run; if(d.run === 0) d.hop = 0;
+    }
+    else if(d.st === 'grab'){ var kk = (t - d.at)/.32; d.hop = Math.sin(clamp(kk, 0, 1)*Math.PI)*s*.28; if(kk >= .5 && b.st === 'ground'){ b.st = 'mouth'; gSnd(gPop); } if(kk >= 1){ d.st = 'return'; d.at = t; d.hop = 0; } }
+    else if(d.st === 'return'){
+      tgt = gHome() + FH*.28; dx = tgt - d.x; d.dir = dx >= 0 ? 1 : -1;
+      if(Math.abs(dx) < FH*.06){ d.st = 'drop'; d.at = t; d.run = 0; d.dir = 1; }
+      else { d.run = Math.min(1, d.run + dt*5); d.x += d.dir*Math.min(Math.abs(dx), vmax*d.run*dt); d.hop = Math.abs(Math.sin(t*9))*s*.1*d.run; }
+    }
+    else if(d.st === 'drop'){ d.run = 0; var kd = (t - d.at)/.3; d.hop = Math.sin(clamp(kd, 0, 1)*Math.PI)*s*.2; if(kd >= .5 && b.st === 'mouth'){ b.st = 'give'; b.at = t; b.gx = b.x; b.gy = b.y; } if(kd >= 1){ d.st = 'back'; d.at = t; d.hop = 0; } }
+    else if(d.st === 'back'){ d.dir = -1; tgt = gHome(); dx = tgt - d.x; if(Math.abs(dx) < FH*.04){ d.st = 'sit'; d.dir = 1; d.run = 0; } else { d.run = Math.min(.7, d.run + dt*4); d.x += (dx > 0 ? 1 : -1)*Math.min(Math.abs(dx), vmax*.6*dt); d.dir = dx > 0 ? 1 : -1; } d.hop = 0; }
+    // Macarrão
+    GM.fx = GM.fx.filter(function(f){ return t - f.at < 1.8; });
+  }
+  function gHitDog(px, py){ var d = GM.dog, s = FH*DOGS; return px > d.x - s*.7 && px < d.x + s*.9 && py > GY - s*1.2 && py < GY + FH*.08; }
+  function gHitAle(px, py){ var x = gAx(), h = FH*KID; return px > x - h*.3 && px < x + h*.3 && py > GY - h*1.05 && py < GY + FH*.06; }
+  function gHitBun(px, py){ var s = FH*BUNS, x = GM.bun.x; return px > x - s*.7 && px < x + s*.7 && py > GY - s*1.5 && py < GY + FH*.06; }
+  function gTap(px, py){
+    gAudio();
+    if(gHitDog(px, py)){ var d = GM.dog; if(d.st === 'sit'){ d.bark = GM.t; gSnd(gBark); gFx('hearts', d.x, GY - FH*DOGS*1.1); gSay('au, au!', d.x + FH*.25, GY - FH*DOGS*1.7, 1.1); return; } d.bark = GM.t; gSnd(gBark); return; }
+    if(gHitBun(px, py)){ GM.bun.hop = GM.t; gSnd(function(){ gTone(900, 1300, .08, 'sine', .15); }); gFx('hearts', GM.bun.x, GY - FH*BUNS*1.3); return; }
+    if(gHitAle(px, py) && GM.al.st === 'idle'){ GM.al.st = 'cheer'; GM.al.at = GM.t; gSay('Oba!', gAx() + FH*.15, GY - FH*KID*1.22, 1.1); gSnd(function(){ gChime(2); }); return; }
+    if(!gThrow(px)){ if(GM.al.st !== 'cheer') gSay('Espera o Caramelo!', gAx() + FH*.55, GY - FH*KID*1.22, 1.2); }
+  }
+  function gDraw(){
+    var t = GM.t, a = GM.al, b = GM.ball, d = GM.dog, h = FH*KID, ax = gAx(), s = FH*DOGS, r = gBox();
+    var tt = 56 + (t*.3 % 90); T_NOW = tt; T = tt;
+    drawSky(tt); drawHills(tt); drawGround(tt);
+    homeHouse(tt); amoreira(X(-.62) - FH*2.6*.5 - FH*.38, FH*1.55, 0, tt); mangueira(X(-.62) + FH*2.6*.5 + FH*.5, FH*1.2, 0, tt);
+    T_NOW = t;
+    // Macarrão
+    var bn = GM.bun, bk = t - bn.hop, hopping = bn.hop > 0 && bk < 1.1;
+    bunny(bn.x, GY, FH*BUNS, t, hopping ? 1 : 0, 1, !hopping, 1.2);
+    // sombra da bolinha
+    if(b.st === 'fly' || b.st === 'bounce'){ var hh = clamp((GY - b.y)/(FH*1.1), 0, 1); ctx.fillStyle = 'rgba(40,30,20,' + (.22*(1 - hh*.7)) + ')'; ctx.beginPath(); ctx.ellipse(b.x, GY + 1, r*(1 - hh*.4), r*.3, 0, 0, 6.3); ctx.fill(); }
+    else if(b.st === 'ground'){ ctx.fillStyle = 'rgba(40,30,20,.22)'; ctx.beginPath(); ctx.ellipse(b.x, GY + 1, r, r*.3, 0, 0, 6.3); ctx.fill(); }
+    // Alê (com a bolinha na mão antes de jogar)
+    var hp = gHandPos(), hands = [null, hp], throwing = a.st === 'wind' || a.st === 'throw';
+    var jp = a.st === 'cheer' ? a.jump : 0;
+    kid(ax, GY - jp, h, t, { dir: 1, jump: a.st === 'cheer', hands: (a.st === 'cheer') ? null : hands, hat: true, hatCol: SUN });
+    // Caramelo
+    var barking = d.bark && (t - d.bark) < .35, sitting = d.st === 'sit' || d.st === 'drop' && false;
+    dog(d.x, GY, s, t, d.run, d.dir, d.st === 'sit', d.hop + (barking ? Math.abs(Math.sin((t - d.bark)*18))*s*.1 : 0));
+    // bolinha
+    var bx = b.x, by = b.y;
+    if(b.st === 'hand'){ bx = hp[0]; by = hp[1] - r*.2; }
+    ctx.save(); ctx.fillStyle = b.col; ctx.strokeStyle = 'rgba(58,42,56,.55)'; ctx.lineWidth = Math.max(1, r*.16); ctx.beginPath(); ctx.arc(bx, by, r, 0, 6.3); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = Math.max(1, r*.2); ctx.beginPath(); ctx.arc(bx, by, r*.68, Math.PI*1.1, Math.PI*1.55); ctx.stroke(); ctx.restore();
+    // efeitos: corações
+    GM.fx.forEach(function(f){ var k = (t - f.at)/1.6; if(k < 0 || k > 1) return; heartBurst(f.x, f.y, FH*.55, k, 7); });
+    // festa a cada 5 voltas
+    if(GM.party){ var pk = (t - GM.party)/4.2; if(pk >= 1) GM.party = 0; else confetti({ x: 0, y: -FH*.2, w: W, h: H*1.05 }, t, Math.sin(Math.min(1, pk)*Math.PI), 90); }
+    // balão de fala
+    var sy = GM.say; if(sy){ var k3 = (t - sy.at)/sy.dur; if(k3 >= 1) GM.say = null; else { ctx.save(); ctx.globalAlpha = clamp(Math.min(k3*6, (1 - k3)*5), 0, 1); bubbleText(sy.x, sy.y, sy.t, FH*.15); ctx.restore(); } }
+    // contador de voltas (estrelinha + número) e dica
+    var cx = Math.max(14, W*.03), cy = Math.max(14, H*.045), fs = Math.max(22, FH*.22);
+    ctx.save(); ctx.fillStyle = 'rgba(255,253,245,.86)'; ctx.strokeStyle = 'rgba(58,42,56,.35)'; ctx.lineWidth = 1.5; var bw = fs*2.25, bh = fs*1.45; ctx.beginPath(); rrectPath(cx, cy, bw, bh, bh/2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = SUN; ctx.strokeStyle = '#b8830f'; ctx.lineWidth = 1.5; starPath(cx + bh*.55, cy + bh*.52, bh*.34, 0); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#3a2a40'; ctx.font = '400 ' + fs + 'px ' + KIDFONT; ctx.textAlign = 'left'; ctx.fillText(String(GM.hits), cx + bh*1.05, cy + bh*.68); ctx.restore();
+    if(GM.hint > 0){ var hs = Math.max(18, FH*.2); ctx.save(); ctx.globalAlpha = GM.hint*(.75 + .25*Math.sin(t*3)); ctx.font = '400 ' + hs + 'px ' + KIDFONT; var msg = 'Toque na tela para jogar a bolinha!', mw = ctx.measureText(msg).width + hs*1.2, mh = hs*1.7, mx = W/2 - mw/2, my = Math.min(H - mh - 16, GY + (H - GY)*.45 - mh/2);
+      ctx.fillStyle = 'rgba(255,253,245,.92)'; ctx.strokeStyle = 'rgba(58,42,56,.4)'; ctx.lineWidth = 1.5; ctx.beginPath(); rrectPath(mx, my, mw, mh, mh/2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#e0507a'; ctx.textAlign = 'center'; ctx.fillText(msg, W/2, my + mh*.66); ctx.restore(); }
+  }
+  function gFrame(dt){ gLayout(); gUpdate(Math.min(.05, dt)); ctx.save(); gDraw(); ctx.restore(); }
+  var gPtr = function(e){ if(!GM.on) return; var rc = cv.getBoundingClientRect(); gTap(e.clientX - rc.left, e.clientY - rc.top); e.preventDefault(); };
+  cv.addEventListener('pointerdown', gPtr);
+  window.__gameOpen = function(){ var a = document.getElementById('audio'); try{ a.pause(); }catch(e){} gReset(); GM.on = true; document.body.classList.add('gaming'); document.body.classList.remove('covered'); var c0 = document.getElementById('cover'); c0.classList.add('gone'); c0.hidden = true; gAudio(); };
+  window.__gameClose = function(){ GM.on = false; document.body.classList.remove('gaming'); document.body.classList.add('covered'); var c0 = document.getElementById('cover'); c0.hidden = false; c0.classList.remove('gone'); c0.classList.remove('end'); };
+  window.__game = GM;
+
   /* ===== Interface ===== */
   var player = document.getElementById('player'), cover = document.getElementById('cover'), startBtn = document.getElementById('startBtn'), startLabel = document.getElementById('startLabel');
   var EMBED = (window.parent !== window), BASE_T = EMBED ? 2.0 : 0;   // dentro do livro o clipe começa direto na primeira página (sem a cena de capa)
@@ -2192,6 +2347,7 @@ body.covered #player{opacity:0; pointer-events:none}
     requestAnimationFrame(frame);
     var dt = Math.min(.05, (now - lastNow)/1000); lastNow = now;
     var t = audio.currentTime, d = audio.duration || 0, cov = document.body.classList.contains('covered');
+    if(GM.on){ try{ gFrame(dt); }catch(e){ showError('Erro no jogo: ' + e.message); throw e; } return; }
     RES += ((cov ? 1 : 0) - RES)*Math.min(1, dt*3);
     if(!RENDER_MODE && dt > 0){ EMA += (dt*1000 - EMA)*.05; if(EMA > 28) SLOW++; else SLOW = Math.max(0, SLOW - 2);
       if(SLOW > 100 && DPR > 1.05){ DPR = Math.max(1, DPR*.78); SLOW = 0; EMA = 16; resize(); } }
@@ -2308,10 +2464,14 @@ document.querySelectorAll('.back').forEach(function(a){ a.addEventListener('clic
   document.getElementById('wClose').addEventListener('click', function(){ close(); });
   document.getElementById('wAgain').addEventListener('click', relight);
   document.getElementById('wReplay').addEventListener('click', function(){ close(function(){ document.getElementById('startBtn').click(); }); });
+  document.getElementById('wGame').addEventListener('click', function(){ close(function(){ if(window.__gameOpen) window.__gameOpen(); }); });
   var wl = document.getElementById('wishLink'); if(wl) wl.addEventListener('click', open);
   window.addEventListener('resize', function(){ if(openN) size(); });
 })();
 
+</script>
+<script>
+(function(){ var g = document.getElementById('gameLink'); if(g) g.addEventListener('click', function(){ window.__gameOpen && window.__gameOpen(); }); var c = document.getElementById('gClose'); if(c) c.addEventListener('click', function(){ window.__gameClose && window.__gameClose(); }); })();
 </script>
 </body>
 </html>
