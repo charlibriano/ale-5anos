@@ -2195,7 +2195,7 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
     GM.side = 1; GM.trick = null; GM.pend = null; GM.ti = 0; GM.banner = null; GM.t = 0; GM.hits = 0; GM.shown = 0; GM.fx = []; GM.hint = 1; GM.say = null; GM.party = 0; GM.partyAt = 0;
     GM.al = { st: 'idle', at: 0, jump: 0 };
     GM.dog = { x: gHome(), st: 'sit', at: 0, dir: 1, run: 0, hop: 0, tx: 0, bark: 0 };
-    GM.bun = { x: X(-.62) - FH*1.05, hop: 0 };
+    GM.bun = { x: X(-.62) - FH*1.05, home: X(-.62) - FH*1.05, hop: 0, st: 'sit', dir: 1, run: 0, low: 0, at: 0, tx: 0, turbo: false }; GM.owner = null; GM.race = null; GM.throws = 0;
     GM.ball = { st: 'hand', col: PARTY[0], x: 0, y: 0, hit: 0, n: 0 };
   }
   function gHandPos(){ var h = FH*KID, x = gAx(), a = GM.al, k = (GM.t - a.at);
@@ -2212,7 +2212,9 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
     var a = GM.al, b = GM.ball, hp = gW(gHandPos()), tx = a.tx, r = gBox(), dist = Math.abs(tx - hp[0]);
     b.st = 'fly'; b.x0 = hp[0]; b.y0 = hp[1]; b.x1 = tx; b.y1 = GY - r; b.at = GM.t; b.dur = .55 + dist/FH*.16; b.peak = FH*(.55 + dist/FH*.2);
     b.col = PARTY[(b.n++) % PARTY.length]; b.rest = tx + GM.side*FH*.1; b.x = b.x0; b.y = b.y0;
-    var d = GM.dog; d.st = 'chase'; d.at = GM.t; d.tx = b.rest; gSnd(gWhoosh); }
+    var d = GM.dog; d.st = 'chase'; d.at = GM.t; d.tx = b.rest; gSnd(gWhoosh);
+    GM.throws++; GM.owner = null; var bn = GM.bun, join = bn.turbo || (GM.throws % 3 === 0 && bn.st === 'sit');
+    if(join){ GM.race = { winner: bn.turbo ? 'bun' : (Math.random() < .3 ? 'bun' : 'dog'), turbo: bn.turbo }; bn.st = 'chase'; bn.tx = b.rest; bn.turbo = false; bn.hop = 0; gSay('Eu também!', bn.x, GY - FH*BUNS*2.4, 1.2); } else GM.race = null; }
   function gStartTrick(n, isNew){
     var d = GM.dog; d.dir = GM.side; d.run = 0; d.hop = 0; GM.trick = { n: n, at: GM.t, dur: TRICK_DUR[n] };
     if(isNew) GM.banner = { t: 'Truque novo: ' + TRICK_NAME[n] + '!', at: GM.t, dur: 3 };
@@ -2238,21 +2240,24 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
       if(kb >= 1){ b.n2++; if(b.n2 >= 2){ b.st = 'ground'; b.x = b.xb; b.y = GY - r; } else { b.at = t; b.bd = .22; b.bh *= .35; b.xa = lerp(b.x1, b.xb, .6); gSnd(gBounce); } }
       else { var xs = b.n2 === 0 ? lerp(b.x1, lerp(b.x1, b.xb, .6), kb) : lerp(lerp(b.x1, b.xb, .6), b.xb, kb); b.x = xs; b.y = GY - r - 4*b.bh*kb*(1 - kb); }
     }
-    if(b.st === 'mouth'){ var dir = d.dir, ms = d.st === 'sit' ? [.62, -.68] : [.82, -.64]; b.x = d.x + dir*s*ms[0]; b.y = GY - d.hop + s*ms[1]; }
-    if(b.st === 'give'){ var kg = (t - b.at)/.38; if(kg >= 1){ b.st = 'hand'; gSnd(gPop); a.st = 'cheer'; a.at = t; GM.hits++; gFx('hearts', ax, GY - h*.9); gSnd(function(){ gChime(GM.hits % 5 === 0 ? 4 : 2); }); gSay('Boa, Caramelo!', ax + FH*.15, GY - h*1.22, 1.5); d.bark = t; gSnd(gBark); GM.bun.hop = t;
+    if(b.st === 'mouth'){
+      if(GM.owner === 'bun'){ var bq = GM.bun, bs0 = FH*BUNS, lift = (bq.st === 'return' || bq.st === 'back') ? Math.abs(Math.sin(t*7.5 + 1.2))*bs0*.55 : 0; b.x = bq.x + bq.dir*bs0*.72; b.y = GY - FH*.045*(1 - bq.low) - lift - bs0*.5; }
+      else { var dir = d.dir, ms = d.st === 'sit' ? [.62, -.68] : [.82, -.64]; b.x = d.x + dir*s*ms[0]; b.y = GY - d.hop + s*ms[1]; } }
+    if(b.st === 'give'){ var kg = (t - b.at)/.38; if(kg >= 1){ b.st = 'hand'; gSnd(gPop); a.st = 'cheer'; a.at = t; GM.hits++; gFx('hearts', ax, GY - h*.9); gSnd(function(){ gChime(GM.hits % 5 === 0 ? 4 : 2); }); var by2 = GM.owner === 'bun'; gSay(by2 ? 'Boa, Macarrão!' : 'Boa, Caramelo!', ax + FH*.15, GY - h*1.22, 1.5); if(by2){ gSnd(function(){ gTone(900, 1400, .1, 'sine', .16); }); } else { d.bark = t; gSnd(gBark); GM.bun.hop = t; } GM.owner = null; GM.race = null;
         if(GM.hits % 5 === 0){ GM.party = t; var ni = GM.hits/5; GM.pend = { n: TRICKS[(ni - 1) % TRICKS.length], isNew: ni <= TRICKS.length }; } }
       else { var hp2 = gW(gHandPos()); b.x = lerp(b.gx, hp2[0], kg); b.y = lerp(b.gy, hp2[1], kg) - 4*FH*.35*kg*(1 - kg); } }
     // Caramelo
-    var vmax = FH*3.6, tgt, dx;
+    var vmax = FH*3.6*((GM.race && GM.race.winner === 'bun') ? .72 : 1), tgt, dx;
     if(d.st === 'sit'){ d.run = 0; d.hop = 0; d.x = lerp(d.x, gHome(), Math.min(1, dt*6)); if(GM.pend && !GM.trick && Math.abs(d.x - gHome()) < FH*.03 && a.st === 'idle'){ gStartTrick(GM.pend.n, GM.pend.isNew); GM.pend = null; } }
     else if(d.st === 'chase'){
       tgt = d.tx; dx = tgt - d.x; d.dir = dx >= 0 ? 1 : -1;
       var near = Math.abs(dx) < FH*.12;
-      if(near && b.st === 'ground'){ d.st = 'grab'; d.at = t; d.run = 0; }
+      if(near && b.st === 'ground'){ if(!GM.owner && !(GM.race && GM.race.winner === 'bun')){ GM.owner = 'dog'; d.st = 'grab'; d.at = t; d.run = 0; } else { d.st = 'lose'; d.at = t; d.run = 0; } }
       else if(near){ d.run = Math.max(0, d.run - dt*5); }
       else { d.run = Math.min(1, d.run + dt*5); d.x += d.dir*Math.min(Math.abs(dx), vmax*d.run*dt); }
       d.hop = Math.abs(Math.sin(t*9))*s*.1*d.run; if(d.run === 0) d.hop = 0;
     }
+    else if(d.st === 'lose'){ d.run = 0; d.hop = 0; if(!GM.owner){ d.st = 'back'; d.at = t; } }
     else if(d.st === 'grab'){ var kk = (t - d.at)/.32; d.hop = Math.sin(clamp(kk, 0, 1)*Math.PI)*s*.28; if(kk >= .5 && b.st === 'ground'){ b.st = 'mouth'; gSnd(gPop); } if(kk >= 1){ d.st = 'return'; d.at = t; d.hop = 0; } }
     else if(d.st === 'return'){
       tgt = gHome() + GM.side*FH*.28; dx = tgt - d.x; d.dir = dx >= 0 ? 1 : -1;
@@ -2262,6 +2267,17 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
     else if(d.st === 'drop'){ d.run = 0; var kd = (t - d.at)/.3; d.hop = Math.sin(clamp(kd, 0, 1)*Math.PI)*s*.2; if(kd >= .5 && b.st === 'mouth'){ b.st = 'give'; b.at = t; b.gx = b.x; b.gy = b.y; } if(kd >= 1){ d.st = 'back'; d.at = t; d.hop = 0; } }
     else if(d.st === 'back'){ d.dir = -1; tgt = gHome(); dx = tgt - d.x; if(Math.abs(dx) < FH*.04){ d.st = 'sit'; d.dir = GM.side; d.run = 0; } else { d.run = Math.min(.7, d.run + dt*4); d.x += (dx > 0 ? 1 : -1)*Math.min(Math.abs(dx), vmax*.6*dt); d.dir = dx > 0 ? 1 : -1; } d.hop = 0; }
     // Macarrão
+    var bn = GM.bun, bsz = FH*BUNS, vb = FH*((GM.race && GM.race.winner === 'bun') ? (GM.race.turbo ? 4.2 : 3.3) : 2.4), nearB;
+    bn.low += ((bn.st === 'sit' ? 0 : 1) - bn.low)*Math.min(1, dt*8);
+    if(bn.st === 'chase'){ dx = bn.tx - bn.x; bn.dir = dx >= 0 ? 1 : -1; nearB = Math.abs(dx) < FH*.1;
+      if(nearB){ bn.run = 0; if(b.st === 'ground'){ if(!GM.owner && GM.race && GM.race.winner === 'bun'){ GM.owner = 'bun'; bn.st = 'grab'; bn.at = t; } else { bn.st = 'lose'; bn.at = t; } } }
+      else { bn.run = 1; bn.x += bn.dir*Math.min(Math.abs(dx), vb*dt); } }
+    else if(bn.st === 'lose'){ bn.run = 0; if(!GM.owner){ bn.st = 'back'; } }
+    else if(bn.st === 'grab'){ bn.run = 0; var kq = (t - bn.at)/.3; if(kq >= .5 && b.st === 'ground'){ b.st = 'mouth'; gSnd(gPop); } if(kq >= 1){ bn.st = 'return'; bn.at = t; } }
+    else if(bn.st === 'return'){ tgt = gAx() + GM.side*FH*.5; dx = tgt - bn.x; bn.dir = dx >= 0 ? 1 : -1;
+      if(Math.abs(dx) < FH*.05){ bn.st = 'drop'; bn.at = t; bn.run = 0; bn.dir = -GM.side; } else { bn.run = 1; bn.x += bn.dir*Math.min(Math.abs(dx), vb*dt); } }
+    else if(bn.st === 'drop'){ bn.run = 0; var kz = (t - bn.at)/.35; if(kz >= .5 && b.st === 'mouth'){ b.st = 'give'; b.at = t; b.gx = b.x; b.gy = b.y; } if(kz >= 1){ bn.st = 'back'; bn.at = t; } }
+    else if(bn.st === 'back'){ dx = bn.home - bn.x; bn.dir = dx >= 0 ? 1 : -1; if(Math.abs(dx) < FH*.04){ bn.st = 'sit'; bn.run = 0; bn.dir = 1; } else { bn.run = 1; bn.x += bn.dir*Math.min(Math.abs(dx), vb*.75*dt); } }
     GM.fx = GM.fx.filter(function(f){ return t - f.at < 1.8; });
   }
   function gHitDog(px, py){ var d = GM.dog, s = FH*DOGS; return px > d.x - s*.9 && px < d.x + s*.9 && py > GY - s*1.2 && py < GY + FH*.08; }
@@ -2270,7 +2286,7 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
   function gTap(px, py){
     gAudio();
     if(gHitDog(px, py)){ var d = GM.dog; if(d.st === 'sit' && !GM.trick){ if(gLearned() > 0 && !GM.pend){ gStartTrick(TRICKS[(GM.ti++) % gLearned()], false); return; } d.bark = GM.t; gSnd(gBark); gFx('hearts', d.x, GY - FH*DOGS*1.1); gSay('au, au!', d.x + FH*.25, GY - FH*DOGS*1.7, 1.1); return; } d.bark = GM.t; gSnd(gBark); return; }
-    if(gHitBun(px, py)){ GM.bun.hop = GM.t; gSnd(function(){ gTone(900, 1300, .08, 'sine', .15); }); gFx('hearts', GM.bun.x, GY - FH*BUNS*1.3); return; }
+    if(gHitBun(px, py)){ var bq = GM.bun; if(bq.st === 'sit' && !bq.turbo){ bq.turbo = true; bq.hop = GM.t; gSay('Vou ganhar!', bq.x, GY - FH*BUNS*2.4, 1.4); gSnd(function(){ gChime(3); }); } else { bq.hop = GM.t; gSnd(function(){ gTone(900, 1300, .08, 'sine', .15); }); } gFx('hearts', bq.x, GY - FH*BUNS*1.3); return; }
     if(gHitAle(px, py) && GM.al.st === 'idle'){ GM.al.st = 'cheer'; GM.al.at = GM.t; gSay('Oba!', gAx() + FH*.15, GY - FH*KID*1.22, 1.1); gSnd(function(){ gChime(2); }); return; }
     if(!gThrow(px)){ if(GM.trick || GM.pend) gSay('Olha o Caramelo!', gAx() + FH*.55, GY - FH*KID*1.22, 1.2); else if(GM.al.st !== 'cheer') gSay('Espera o Caramelo!', gAx() + FH*.55, GY - FH*KID*1.22, 1.2); }
   }
@@ -2297,8 +2313,10 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
     homeHouse(tt); amoreira(X(-.62) - FH*2.6*.5 - FH*.38, FH*1.55, 0, tt); mangueira(X(-.62) + FH*2.6*.5 + FH*.5, FH*1.2, 0, tt);
     T_NOW = t;
     // Macarrão
-    var bn = GM.bun, bk = t - bn.hop, hopping = bn.hop > 0 && bk < 1.1;
-    bunny(bn.x, GY - FH*.045, FH*BUNS, t, hopping ? 1 : 0, (ax >= bn.x ? 1 : -1), !hopping, 1.2);
+    var bn = GM.bun, bk = t - bn.hop, hopping = bn.st === 'sit' && bn.hop > 0 && bk < 1.1, moving = bn.st === 'chase' || bn.st === 'return' || bn.st === 'back', byy = GY - FH*.045*(1 - bn.low);
+    if(bn.turbo){ ctx.save(); ctx.globalCompositeOperation = 'lighter'; glowDot(bn.x, byy - FH*BUNS*.5, FH*BUNS*1.6, 'rgba(255,215,90,A)', .55 + .2*Math.sin(t*8)); ctx.restore(); sparkles(bn.x, byy - FH*BUNS*.55, FH*BUNS*.95, 8, .9); }
+    var bdir = bn.st === 'sit' ? (ax >= bn.x ? 1 : -1) : bn.dir, bsit = bn.st === 'sit' ? !hopping : (bn.st === 'lose' || (bn.st === 'chase' && bn.run === 0));
+    bunny(bn.x, byy, FH*BUNS, t, (hopping || moving) && bn.run !== 0 || hopping ? 1 : 0, bdir, bsit, 1.2);
     // sombra da bolinha
     if(b.st === 'fly' || b.st === 'bounce'){ var hh = clamp((GY - b.y)/(FH*1.1), 0, 1); ctx.fillStyle = 'rgba(40,30,20,' + (.22*(1 - hh*.7)) + ')'; ctx.beginPath(); ctx.ellipse(b.x, GY + 1, r*(1 - hh*.4), r*.3, 0, 0, 6.3); ctx.fill(); }
     else if(b.st === 'ground'){ ctx.fillStyle = 'rgba(40,30,20,.22)'; ctx.beginPath(); ctx.ellipse(b.x, GY + 1, r, r*.3, 0, 0, 6.3); ctx.fill(); }
@@ -2322,7 +2340,7 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
     // festa a cada 5 voltas
     if(GM.party){ var pk = (t - GM.party)/4.2; if(pk >= 1) GM.party = 0; else confetti({ x: 0, y: -FH*.2, w: W, h: H*1.05 }, t, Math.sin(Math.min(1, pk)*Math.PI), 90); }
     // balão de fala
-    var sy = GM.say; if(sy){ var k3 = (t - sy.at)/sy.dur; if(k3 >= 1) GM.say = null; else { ctx.save(); ctx.globalAlpha = clamp(Math.min(k3*6, (1 - k3)*5), 0, 1); bubbleText(sy.x, sy.y, sy.t, FH*.15); ctx.restore(); } }
+    var sy = GM.say; if(sy){ var k3 = (t - sy.at)/sy.dur; if(k3 >= 1) GM.say = null; else { ctx.save(); ctx.globalAlpha = clamp(Math.min(k3*6, (1 - k3)*5), 0, 1); ctx.font = '400 ' + Math.max(FH*.15, 13) + 'px ' + KIDFONT; var bw3 = ctx.measureText(sy.t).width/2 + FH*.15; bubbleText(Math.max(sy.x, bw3 + 6), sy.y, sy.t, FH*.15); ctx.restore(); } }
     var bn2 = GM.banner; if(bn2){ var kb2 = (t - bn2.at)/bn2.dur; if(kb2 >= 1) GM.banner = null; else { var bf = Math.max(20, FH*.24), by0 = Math.max(70, H*.14); ctx.save(); ctx.globalAlpha = clamp(Math.min(kb2*8, (1 - kb2)*4), 0, 1); ctx.font = '400 ' + bf + 'px ' + KIDFONT; var bwid = Math.min(W - 24, ctx.measureText(bn2.t).width + bf*1.6), bhh = bf*1.7; ctx.fillStyle = '#e0507a'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath(); rrectPath(W/2 - bwid/2, by0 - bhh/2, bwid, bhh, bhh/2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(bn2.t, W/2, by0 + bf*.3); ctx.restore(); } }
     // contador de voltas (estrelinha + número) e dica
     var cx = Math.max(14, W*.03), cy = Math.max(14, H*.045), fs = Math.max(22, FH*.22);
