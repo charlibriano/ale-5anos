@@ -2163,7 +2163,10 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
   /* ===== Jogo: brincar com o Caramelo =====
      A Alê joga a bolinha onde a criança tocar, o Caramelo corre, pega e traz de volta.
      Usa os mesmos desenhos do clipe (casa, árvores, Alê, Caramelo, Macarrão) e a mesma tela (cv). */
-  var GM = { on: false, t: 0, hits: 0, shown: 0, ball: null, al: null, dog: null, bun: null, fx: [], hint: 1, say: null, party: 0, partyAt: 0 };
+  var GM = { on: false, t: 0, hits: 0, shown: 0, ball: null, al: null, dog: null, bun: null, fx: [], hint: 1, say: null, party: 0, partyAt: 0, trick: null, pend: null, ti: 0, banner: null, side: 1 };
+  var TRICKS = ['giro', 'cambalhota', 'morto', 'danca', 'salto'];
+  var TRICK_NAME = { giro: 'Giro', cambalhota: 'Cambalhota', morto: 'Fingir de morto', danca: 'Dançar em pé', salto: 'Saltão' };
+  var TRICK_DUR = { giro: 1.3, cambalhota: 1.5, morto: 2.8, danca: 2.4, salto: 1.9 };
   var gA = null;
   function gAudio(){ if(!gA){ try{ gA = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){ gA = null; } } if(gA && gA.state === 'suspended') gA.resume(); return gA; }
   function gTone(f0, f1, dur, type, vol, delay, lp){ var a = gAudio(); if(!a) return; try{
@@ -2189,7 +2192,7 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
   function gClampX(px, side){ var ax = gAx(), lo = FH*.75, hi = side > 0 ? W - FH*.3 - ax : ax - FH*.3; return ax + side*clamp(Math.abs(px - ax), lo, Math.max(lo, hi)); }
     function gReset(){
     gLayout();
-    GM.side = 1; GM.t = 0; GM.hits = 0; GM.shown = 0; GM.fx = []; GM.hint = 1; GM.say = null; GM.party = 0; GM.partyAt = 0;
+    GM.side = 1; GM.trick = null; GM.pend = null; GM.ti = 0; GM.banner = null; GM.t = 0; GM.hits = 0; GM.shown = 0; GM.fx = []; GM.hint = 1; GM.say = null; GM.party = 0; GM.partyAt = 0;
     GM.al = { st: 'idle', at: 0, jump: 0 };
     GM.dog = { x: gHome(), st: 'sit', at: 0, dir: 1, run: 0, hop: 0, tx: 0, bark: 0 };
     GM.bun = { x: X(-.62) - FH*1.05, hop: 0 };
@@ -2202,7 +2205,7 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
     if(a.st === 'throw'){ var q2 = ease(clamp(k/.28, 0, 1)); if(q2 < .5){ var r = q2*2; return [lerp(back[0], up[0], r), lerp(back[1], up[1], r)]; } var r2 = (q2 - .5)*2; return [lerp(up[0], low[0], r2), lerp(up[1], low[1], r2)]; }
     return hold; }
   function gThrow(tx){
-    var a = GM.al, b = GM.ball; if(a.st !== 'idle' || b.st !== 'hand') return false;
+    var a = GM.al, b = GM.ball; if(a.st !== 'idle' || b.st !== 'hand' || GM.trick || GM.pend) return false;
     GM.side = tx >= gAx() ? 1 : -1; tx = gClampX(tx, GM.side);
     a.st = 'wind'; a.at = GM.t; a.tx = tx; GM.hint = 0; GM.say = null; return true; }
   function gRelease(){
@@ -2210,6 +2213,13 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
     b.st = 'fly'; b.x0 = hp[0]; b.y0 = hp[1]; b.x1 = tx; b.y1 = GY - r; b.at = GM.t; b.dur = .55 + dist/FH*.16; b.peak = FH*(.55 + dist/FH*.2);
     b.col = PARTY[(b.n++) % PARTY.length]; b.rest = tx + GM.side*FH*.1; b.x = b.x0; b.y = b.y0;
     var d = GM.dog; d.st = 'chase'; d.at = GM.t; d.tx = b.rest; gSnd(gWhoosh); }
+  function gStartTrick(n, isNew){
+    var d = GM.dog; d.dir = GM.side; d.run = 0; d.hop = 0; GM.trick = { n: n, at: GM.t, dur: TRICK_DUR[n] };
+    if(isNew) GM.banner = { t: 'Truque novo: ' + TRICK_NAME[n] + '!', at: GM.t, dur: 3 };
+    gSnd(function(){ gChime(3); }); gFx('hearts', d.x, GY - FH*DOGS*1.1);
+    if(n === 'salto'){ [.2, .65, 1.1].forEach(function(dl){ setTimeout(function(){ if(GM.on) gSnd(gBark); }, dl*1000); }); } else { setTimeout(function(){ if(GM.on) gSnd(gBark); }, 250); }
+  }
+  function gLearned(){ return Math.min(TRICKS.length, Math.floor(GM.hits/5)); }
   function gSay(txt, x, y, dur){ GM.say = { t: txt, x: x, y: y, at: GM.t, dur: dur || 1.3 }; }
   function gFx(kind, x, y){ GM.fx.push({ k: kind, x: x, y: y, at: GM.t }); }
   function gUpdate(dt){
@@ -2230,11 +2240,11 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
     }
     if(b.st === 'mouth'){ var dir = d.dir, ms = d.st === 'sit' ? [.62, -.68] : [.82, -.64]; b.x = d.x + dir*s*ms[0]; b.y = GY - d.hop + s*ms[1]; }
     if(b.st === 'give'){ var kg = (t - b.at)/.38; if(kg >= 1){ b.st = 'hand'; gSnd(gPop); a.st = 'cheer'; a.at = t; GM.hits++; gFx('hearts', ax, GY - h*.9); gSnd(function(){ gChime(GM.hits % 5 === 0 ? 4 : 2); }); gSay('Boa, Caramelo!', ax + FH*.15, GY - h*1.22, 1.5); d.bark = t; gSnd(gBark); GM.bun.hop = t;
-        if(GM.hits % 5 === 0){ GM.party = t; } }
+        if(GM.hits % 5 === 0){ GM.party = t; var ni = GM.hits/5; GM.pend = { n: TRICKS[(ni - 1) % TRICKS.length], isNew: ni <= TRICKS.length }; } }
       else { var hp2 = gW(gHandPos()); b.x = lerp(b.gx, hp2[0], kg); b.y = lerp(b.gy, hp2[1], kg) - 4*FH*.35*kg*(1 - kg); } }
     // Caramelo
     var vmax = FH*3.6, tgt, dx;
-    if(d.st === 'sit'){ d.run = 0; d.hop = 0; d.x = lerp(d.x, gHome(), Math.min(1, dt*6)); }
+    if(d.st === 'sit'){ d.run = 0; d.hop = 0; d.x = lerp(d.x, gHome(), Math.min(1, dt*6)); if(GM.pend && !GM.trick && Math.abs(d.x - gHome()) < FH*.03 && a.st === 'idle'){ gStartTrick(GM.pend.n, GM.pend.isNew); GM.pend = null; } }
     else if(d.st === 'chase'){
       tgt = d.tx; dx = tgt - d.x; d.dir = dx >= 0 ? 1 : -1;
       var near = Math.abs(dx) < FH*.12;
@@ -2259,10 +2269,26 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
   function gHitBun(px, py){ var s = FH*BUNS, x = GM.bun.x; return px > x - s*.8 && px < x + s*.8 && py > GY - s*1.7 && py < GY + FH*.06; }
   function gTap(px, py){
     gAudio();
-    if(gHitDog(px, py)){ var d = GM.dog; if(d.st === 'sit'){ d.bark = GM.t; gSnd(gBark); gFx('hearts', d.x, GY - FH*DOGS*1.1); gSay('au, au!', d.x + FH*.25, GY - FH*DOGS*1.7, 1.1); return; } d.bark = GM.t; gSnd(gBark); return; }
+    if(gHitDog(px, py)){ var d = GM.dog; if(d.st === 'sit' && !GM.trick){ if(gLearned() > 0 && !GM.pend){ gStartTrick(TRICKS[(GM.ti++) % gLearned()], false); return; } d.bark = GM.t; gSnd(gBark); gFx('hearts', d.x, GY - FH*DOGS*1.1); gSay('au, au!', d.x + FH*.25, GY - FH*DOGS*1.7, 1.1); return; } d.bark = GM.t; gSnd(gBark); return; }
     if(gHitBun(px, py)){ GM.bun.hop = GM.t; gSnd(function(){ gTone(900, 1300, .08, 'sine', .15); }); gFx('hearts', GM.bun.x, GY - FH*BUNS*1.3); return; }
     if(gHitAle(px, py) && GM.al.st === 'idle'){ GM.al.st = 'cheer'; GM.al.at = GM.t; gSay('Oba!', gAx() + FH*.15, GY - FH*KID*1.22, 1.1); gSnd(function(){ gChime(2); }); return; }
-    if(!gThrow(px)){ if(GM.al.st !== 'cheer') gSay('Espera o Caramelo!', gAx() + FH*.55, GY - FH*KID*1.22, 1.2); }
+    if(!gThrow(px)){ if(GM.trick || GM.pend) gSay('Olha o Caramelo!', gAx() + FH*.55, GY - FH*KID*1.22, 1.2); else if(GM.al.st !== 'cheer') gSay('Espera o Caramelo!', gAx() + FH*.55, GY - FH*KID*1.22, 1.2); }
+  }
+  function gDogTrick(tk, d, s, t){
+    var k = clamp((t - tk.at)/tk.dur, 0, 1), dir = d.dir, cx = d.x, cy = GY - s*.5, px = cx, py = cy, rot = 0, sx = 1, lift = 0;
+    function win(a, b){ return ease(clamp((k - a)/(b - a), 0, 1)); }
+    if(tk.n === 'giro'){ sx = Math.cos(k*Math.PI*4); lift = Math.abs(Math.sin(k*Math.PI*2))*s*.22; }
+    else if(tk.n === 'cambalhota'){ rot = -dir*ease(k)*Math.PI*2; lift = Math.sin(k*Math.PI)*s*1.15; }
+    else if(tk.n === 'morto'){ rot = dir*Math.PI*(win(0, .22)*(1 - win(.82, 1))); }
+    else if(tk.n === 'danca'){ var up = win(0, .18)*(1 - win(.86, 1)); px = cx - dir*s*.32; py = GY; rot = -dir*(.95*up + Math.sin(t*13)*.09*up); }
+    else if(tk.n === 'salto'){ lift = Math.abs(Math.sin(k*Math.PI*3))*s*1.25*Math.sin(Math.min(1, k*1.05)*Math.PI*.5 + .2); }
+    // sombra própria no chão (a do desenho gira junto com o corpo)
+    var sh = 1 - clamp(lift/(s*1.4), 0, .6);
+    ctx.fillStyle = 'rgba(40,30,20,.22)'; ctx.beginPath(); ctx.ellipse(cx, GY + 1, s*.62*sh*Math.max(.35, Math.abs(sx)), s*.07, 0, 0, 6.3); ctx.fill();
+    var e0 = ctx.ellipse, first = true; ctx.ellipse = function(){ if(first){ first = false; return; } return e0.apply(ctx, arguments); };
+    ctx.save(); ctx.translate(0, -lift); ctx.translate(px, py); ctx.rotate(rot); ctx.scale(sx, 1); ctx.translate(-px, -py);
+    dog(cx, GY, s, t, tk.n === 'giro' || tk.n === 'salto' ? .35 : 0, dir, false, 0);
+    ctx.restore(); delete ctx.ellipse;
   }
   function gDraw(){
     var t = GM.t, a = GM.al, b = GM.ball, d = GM.dog, h = FH*KID, ax = gAx(), s = FH*DOGS, r = gBox();
@@ -2282,7 +2308,10 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
     kid(ax, GY - jp, h, t, { dir: GM.side, jump: a.st === 'cheer', hands: (a.st === 'cheer') ? null : hands, hat: true, hatCol: SUN });
     // Caramelo
     var barking = d.bark && (t - d.bark) < .35, sitting = d.st === 'sit' || d.st === 'drop' && false;
-    dog(d.x, GY, s, t, d.run, d.dir, d.st === 'sit', d.hop + (barking ? Math.abs(Math.sin((t - d.bark)*18))*s*.1 : 0));
+    var tk = GM.trick, hopB = d.hop + (barking ? Math.abs(Math.sin((t - d.bark)*18))*s*.1 : 0);
+    if(tk && (t - tk.at) >= tk.dur){ GM.trick = null; tk = null; }
+    if(!tk){ dog(d.x, GY, s, t, d.run, d.dir, d.st === 'sit', hopB); }
+    else { gDogTrick(tk, d, s, t); }
     // bolinha
     var bx = b.x, by = b.y;
     if(b.st === 'hand'){ var hw = gW(hp); bx = hw[0]; by = hw[1] - r*.2; }
@@ -2294,6 +2323,7 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
     if(GM.party){ var pk = (t - GM.party)/4.2; if(pk >= 1) GM.party = 0; else confetti({ x: 0, y: -FH*.2, w: W, h: H*1.05 }, t, Math.sin(Math.min(1, pk)*Math.PI), 90); }
     // balão de fala
     var sy = GM.say; if(sy){ var k3 = (t - sy.at)/sy.dur; if(k3 >= 1) GM.say = null; else { ctx.save(); ctx.globalAlpha = clamp(Math.min(k3*6, (1 - k3)*5), 0, 1); bubbleText(sy.x, sy.y, sy.t, FH*.15); ctx.restore(); } }
+    var bn2 = GM.banner; if(bn2){ var kb2 = (t - bn2.at)/bn2.dur; if(kb2 >= 1) GM.banner = null; else { var bf = Math.max(20, FH*.24), by0 = Math.max(70, H*.14); ctx.save(); ctx.globalAlpha = clamp(Math.min(kb2*8, (1 - kb2)*4), 0, 1); ctx.font = '400 ' + bf + 'px ' + KIDFONT; var bwid = Math.min(W - 24, ctx.measureText(bn2.t).width + bf*1.6), bhh = bf*1.7; ctx.fillStyle = '#e0507a'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.beginPath(); rrectPath(W/2 - bwid/2, by0 - bhh/2, bwid, bhh, bhh/2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(bn2.t, W/2, by0 + bf*.3); ctx.restore(); } }
     // contador de voltas (estrelinha + número) e dica
     var cx = Math.max(14, W*.03), cy = Math.max(14, H*.045), fs = Math.max(22, FH*.22);
     ctx.save(); ctx.fillStyle = 'rgba(255,253,245,.86)'; ctx.strokeStyle = 'rgba(58,42,56,.35)'; ctx.lineWidth = 1.5; var bw = fs*2.25, bh = fs*1.45; ctx.beginPath(); rrectPath(cx, cy, bw, bh, bh/2); ctx.fill(); ctx.stroke();
