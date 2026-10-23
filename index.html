@@ -2181,17 +2181,18 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
   function gBounce(){ gTone(260, 150, .08, 'sine', .14); }
   function gChime(n){ [0, 1, 2, 3].slice(0, n || 3).forEach(function(i){ gTone(523.25*Math.pow(1.2599, i), 523.25*Math.pow(1.2599, i), .3, 'triangle', .16, i*.1); }); }
   function gSnd(f){ try{ f(); }catch(e){} }
-  function gLayout(){ FH = Math.min(H*.29, W*.48); GY = H*.83; CAM = 0; if(H > W*1.15){ FH = W/3.3; GY = H*.72; CAM = -FH*.4; } }
-  function gAx(){ return X(H > W*1.15 ? -1.3 : -1.2); }
+  function gLayout(){ FH = Math.min(H*.29, W*.48); GY = H*.83; CAM = 0; if(H > W*1.15){ FH = W/4; GY = H*.72; } }
+  function gAx(){ return W/2; }
   function gBox(){ return FH*.05; }
-  function gHome(){ return gAx() + FH*.62; }
-  function gMinX(){ return gAx() + FH*1.25; }
-  function gMaxX(){ return W - FH*.3; }
-  function gReset(){
-    GM.t = 0; GM.hits = 0; GM.shown = 0; GM.fx = []; GM.hint = 1; GM.say = null; GM.party = 0; GM.partyAt = 0;
+  function gHome(){ return gAx() + GM.side*FH*.62; }
+  function gW(p){ return [gAx() + GM.side*(p[0] - gAx()), p[1]]; }
+  function gClampX(px, side){ var ax = gAx(), lo = FH*.75, hi = side > 0 ? W - FH*.3 - ax : ax - FH*.3; return ax + side*clamp(Math.abs(px - ax), lo, Math.max(lo, hi)); }
+    function gReset(){
+    gLayout();
+    GM.side = 1; GM.t = 0; GM.hits = 0; GM.shown = 0; GM.fx = []; GM.hint = 1; GM.say = null; GM.party = 0; GM.partyAt = 0;
     GM.al = { st: 'idle', at: 0, jump: 0 };
     GM.dog = { x: gHome(), st: 'sit', at: 0, dir: 1, run: 0, hop: 0, tx: 0, bark: 0 };
-    GM.bun = { x: gAx() - FH*.62, hop: 0 };
+    GM.bun = { x: X(-.62) - FH*1.05, hop: 0 };
     GM.ball = { st: 'hand', col: PARTY[0], x: 0, y: 0, hit: 0, n: 0 };
   }
   function gHandPos(){ var h = FH*KID, x = gAx(), a = GM.al, k = (GM.t - a.at);
@@ -2202,12 +2203,12 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
     return hold; }
   function gThrow(tx){
     var a = GM.al, b = GM.ball; if(a.st !== 'idle' || b.st !== 'hand') return false;
-    tx = clamp(tx, gMinX(), gMaxX());
+    GM.side = tx >= gAx() ? 1 : -1; tx = gClampX(tx, GM.side);
     a.st = 'wind'; a.at = GM.t; a.tx = tx; GM.hint = 0; GM.say = null; return true; }
   function gRelease(){
-    var a = GM.al, b = GM.ball, hp = gHandPos(), tx = a.tx, r = gBox(), dist = Math.abs(tx - hp[0]);
+    var a = GM.al, b = GM.ball, hp = gW(gHandPos()), tx = a.tx, r = gBox(), dist = Math.abs(tx - hp[0]);
     b.st = 'fly'; b.x0 = hp[0]; b.y0 = hp[1]; b.x1 = tx; b.y1 = GY - r; b.at = GM.t; b.dur = .55 + dist/FH*.16; b.peak = FH*(.55 + dist/FH*.2);
-    b.col = PARTY[(b.n++) % PARTY.length]; b.rest = tx + FH*.1; b.x = b.x0; b.y = b.y0;
+    b.col = PARTY[(b.n++) % PARTY.length]; b.rest = tx + GM.side*FH*.1; b.x = b.x0; b.y = b.y0;
     var d = GM.dog; d.st = 'chase'; d.at = GM.t; d.tx = b.rest; gSnd(gWhoosh); }
   function gSay(txt, x, y, dur){ GM.say = { t: txt, x: x, y: y, at: GM.t, dur: dur || 1.3 }; }
   function gFx(kind, x, y){ GM.fx.push({ k: kind, x: x, y: y, at: GM.t }); }
@@ -2230,7 +2231,7 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
     if(b.st === 'mouth'){ var dir = d.dir, ms = d.st === 'sit' ? [.62, -.68] : [.82, -.64]; b.x = d.x + dir*s*ms[0]; b.y = GY - d.hop + s*ms[1]; }
     if(b.st === 'give'){ var kg = (t - b.at)/.38; if(kg >= 1){ b.st = 'hand'; gSnd(gPop); a.st = 'cheer'; a.at = t; GM.hits++; gFx('hearts', ax, GY - h*.9); gSnd(function(){ gChime(GM.hits % 5 === 0 ? 4 : 2); }); gSay('Boa, Caramelo!', ax + FH*.15, GY - h*1.22, 1.5); d.bark = t; gSnd(gBark); GM.bun.hop = t;
         if(GM.hits % 5 === 0){ GM.party = t; } }
-      else { var hp2 = gHandPos(); b.x = lerp(b.gx, hp2[0], kg); b.y = lerp(b.gy, hp2[1], kg) - 4*FH*.35*kg*(1 - kg); } }
+      else { var hp2 = gW(gHandPos()); b.x = lerp(b.gx, hp2[0], kg); b.y = lerp(b.gy, hp2[1], kg) - 4*FH*.35*kg*(1 - kg); } }
     // Caramelo
     var vmax = FH*3.6, tgt, dx;
     if(d.st === 'sit'){ d.run = 0; d.hop = 0; d.x = lerp(d.x, gHome(), Math.min(1, dt*6)); }
@@ -2244,18 +2245,18 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
     }
     else if(d.st === 'grab'){ var kk = (t - d.at)/.32; d.hop = Math.sin(clamp(kk, 0, 1)*Math.PI)*s*.28; if(kk >= .5 && b.st === 'ground'){ b.st = 'mouth'; gSnd(gPop); } if(kk >= 1){ d.st = 'return'; d.at = t; d.hop = 0; } }
     else if(d.st === 'return'){
-      tgt = gHome() + FH*.28; dx = tgt - d.x; d.dir = dx >= 0 ? 1 : -1;
-      if(Math.abs(dx) < FH*.06){ d.st = 'drop'; d.at = t; d.run = 0; d.dir = 1; }
+      tgt = gHome() + GM.side*FH*.28; dx = tgt - d.x; d.dir = dx >= 0 ? 1 : -1;
+      if(Math.abs(dx) < FH*.06){ d.st = 'drop'; d.at = t; d.run = 0; d.dir = -GM.side; }
       else { d.run = Math.min(1, d.run + dt*5); d.x += d.dir*Math.min(Math.abs(dx), vmax*d.run*dt); d.hop = Math.abs(Math.sin(t*9))*s*.1*d.run; }
     }
     else if(d.st === 'drop'){ d.run = 0; var kd = (t - d.at)/.3; d.hop = Math.sin(clamp(kd, 0, 1)*Math.PI)*s*.2; if(kd >= .5 && b.st === 'mouth'){ b.st = 'give'; b.at = t; b.gx = b.x; b.gy = b.y; } if(kd >= 1){ d.st = 'back'; d.at = t; d.hop = 0; } }
-    else if(d.st === 'back'){ d.dir = -1; tgt = gHome(); dx = tgt - d.x; if(Math.abs(dx) < FH*.04){ d.st = 'sit'; d.dir = 1; d.run = 0; } else { d.run = Math.min(.7, d.run + dt*4); d.x += (dx > 0 ? 1 : -1)*Math.min(Math.abs(dx), vmax*.6*dt); d.dir = dx > 0 ? 1 : -1; } d.hop = 0; }
+    else if(d.st === 'back'){ d.dir = -1; tgt = gHome(); dx = tgt - d.x; if(Math.abs(dx) < FH*.04){ d.st = 'sit'; d.dir = GM.side; d.run = 0; } else { d.run = Math.min(.7, d.run + dt*4); d.x += (dx > 0 ? 1 : -1)*Math.min(Math.abs(dx), vmax*.6*dt); d.dir = dx > 0 ? 1 : -1; } d.hop = 0; }
     // Macarrão
     GM.fx = GM.fx.filter(function(f){ return t - f.at < 1.8; });
   }
-  function gHitDog(px, py){ var d = GM.dog, s = FH*DOGS; return px > d.x - s*.7 && px < d.x + s*.9 && py > GY - s*1.2 && py < GY + FH*.08; }
+  function gHitDog(px, py){ var d = GM.dog, s = FH*DOGS; return px > d.x - s*.9 && px < d.x + s*.9 && py > GY - s*1.2 && py < GY + FH*.08; }
   function gHitAle(px, py){ var x = gAx(), h = FH*KID; return px > x - h*.3 && px < x + h*.3 && py > GY - h*1.05 && py < GY + FH*.06; }
-  function gHitBun(px, py){ var s = FH*BUNS, x = GM.bun.x; return px > x - s*.7 && px < x + s*.7 && py > GY - s*1.5 && py < GY + FH*.06; }
+  function gHitBun(px, py){ var s = FH*BUNS, x = GM.bun.x; return px > x - s*.8 && px < x + s*.8 && py > GY - s*1.7 && py < GY + FH*.06; }
   function gTap(px, py){
     gAudio();
     if(gHitDog(px, py)){ var d = GM.dog; if(d.st === 'sit'){ d.bark = GM.t; gSnd(gBark); gFx('hearts', d.x, GY - FH*DOGS*1.1); gSay('au, au!', d.x + FH*.25, GY - FH*DOGS*1.7, 1.1); return; } d.bark = GM.t; gSnd(gBark); return; }
@@ -2271,20 +2272,20 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
     T_NOW = t;
     // Macarrão
     var bn = GM.bun, bk = t - bn.hop, hopping = bn.hop > 0 && bk < 1.1;
-    bunny(bn.x, GY, FH*BUNS, t, hopping ? 1 : 0, 1, !hopping, 1.2);
+    bunny(bn.x, GY - FH*.045, FH*BUNS, t, hopping ? 1 : 0, (ax >= bn.x ? 1 : -1), !hopping, 1.2);
     // sombra da bolinha
     if(b.st === 'fly' || b.st === 'bounce'){ var hh = clamp((GY - b.y)/(FH*1.1), 0, 1); ctx.fillStyle = 'rgba(40,30,20,' + (.22*(1 - hh*.7)) + ')'; ctx.beginPath(); ctx.ellipse(b.x, GY + 1, r*(1 - hh*.4), r*.3, 0, 0, 6.3); ctx.fill(); }
     else if(b.st === 'ground'){ ctx.fillStyle = 'rgba(40,30,20,.22)'; ctx.beginPath(); ctx.ellipse(b.x, GY + 1, r, r*.3, 0, 0, 6.3); ctx.fill(); }
     // Alê (com a bolinha na mão antes de jogar)
     var hp = gHandPos(), hands = [null, hp], throwing = a.st === 'wind' || a.st === 'throw';
     var jp = a.st === 'cheer' ? a.jump : 0;
-    kid(ax, GY - jp, h, t, { dir: 1, jump: a.st === 'cheer', hands: (a.st === 'cheer') ? null : hands, hat: true, hatCol: SUN });
+    kid(ax, GY - jp, h, t, { dir: GM.side, jump: a.st === 'cheer', hands: (a.st === 'cheer') ? null : hands, hat: true, hatCol: SUN });
     // Caramelo
     var barking = d.bark && (t - d.bark) < .35, sitting = d.st === 'sit' || d.st === 'drop' && false;
     dog(d.x, GY, s, t, d.run, d.dir, d.st === 'sit', d.hop + (barking ? Math.abs(Math.sin((t - d.bark)*18))*s*.1 : 0));
     // bolinha
     var bx = b.x, by = b.y;
-    if(b.st === 'hand'){ bx = hp[0]; by = hp[1] - r*.2; }
+    if(b.st === 'hand'){ var hw = gW(hp); bx = hw[0]; by = hw[1] - r*.2; }
     ctx.save(); ctx.fillStyle = b.col; ctx.strokeStyle = 'rgba(58,42,56,.55)'; ctx.lineWidth = Math.max(1, r*.16); ctx.beginPath(); ctx.arc(bx, by, r, 0, 6.3); ctx.fill(); ctx.stroke();
     ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = Math.max(1, r*.2); ctx.beginPath(); ctx.arc(bx, by, r*.68, Math.PI*1.1, Math.PI*1.55); ctx.stroke(); ctx.restore();
     // efeitos: corações
