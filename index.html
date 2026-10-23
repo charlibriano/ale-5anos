@@ -2277,7 +2277,7 @@ body.gaming #cv{touch-action:none; -webkit-user-select:none; user-select:none}
     if(b.st === 'fly' || b.st === 'bounce'){ var hh = clamp((GY - b.y)/(FH*1.1), 0, 1); ctx.fillStyle = 'rgba(40,30,20,' + (.22*(1 - hh*.7)) + ')'; ctx.beginPath(); ctx.ellipse(b.x, GY + 1, r*(1 - hh*.4), r*.3, 0, 0, 6.3); ctx.fill(); }
     else if(b.st === 'ground'){ ctx.fillStyle = 'rgba(40,30,20,.22)'; ctx.beginPath(); ctx.ellipse(b.x, GY + 1, r, r*.3, 0, 0, 6.3); ctx.fill(); }
     // Alê (com a bolinha na mão antes de jogar)
-    var hp = gHandPos(), hands = [null, hp], throwing = a.st === 'wind' || a.st === 'throw';
+    var hp = gHandPos(), hands = [null, gW(hp)], throwing = a.st === 'wind' || a.st === 'throw';
     var jp = a.st === 'cheer' ? a.jump : 0;
     kid(ax, GY - jp, h, t, { dir: GM.side, jump: a.st === 'cheer', hands: (a.st === 'cheer') ? null : hands, hat: true, hatCol: SUN });
     // Caramelo
